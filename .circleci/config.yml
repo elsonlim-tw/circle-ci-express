@@ -1,14 +1,38 @@
 version: 2
 jobs:
-  build:
+  test:
     docker:
       - image: circleci/node:12.16
     working_directory: ~/app
     steps:
       - checkout
-      - run: echo "hello"
+      - restore_cache:
+          key: cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: "install package manager"
+          command: "npm install"
+      - save_cache:
+          key: cache-{{ checksum "package-lock.json" }}
+          paths:
+            - ./node_modules
+      - run:
+          name: "run test"
+          command: "npm test"
+deploy:
+  working_directory: ~/app
+  docker:
+    - image: buildpack-deps:trusty
+  steps:
+    - checkout
+    - run:
+        name: Deploy Master to Heroku
+        command: |
+          git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git master
 workflows:
   version: 2
   run:
     jobs:
-      - build
+      - test
+      - deploy:
+          requires:
+            - test
